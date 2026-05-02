@@ -21,6 +21,9 @@ const checkScheduleEnabled = document.getElementById('check-schedule-enabled');
 const inputCron = document.getElementById('input-cron');
 const nextRunPreview = document.getElementById('next-run-preview');
 const checkAutoLaunch = document.getElementById('check-auto-launch');
+const checkSaveStorage = document.getElementById('check-save-storage');
+const checkLoadStorage = document.getElementById('check-load-storage');
+const inputStorageName = document.getElementById('input-storage-name');
 
 let activeRecording = null;
 
@@ -62,15 +65,15 @@ async function selectRecording(name) {
   // Load schedule
   const schedule = await electronAPI.getSchedule(name);
   if (schedule) {
-    checkScheduleEnabled.checked = schedule.enabled;
     inputCron.value = schedule.cron || '';
     checkHeadless.checked = schedule.headless !== false; // Default to true if not set
-    updateNextRunPreview(schedule.cron);
+    checkScheduleEnabled.checked = schedule.enabled;
+    await updateNextRunPreview(schedule.cron);
   } else {
-    checkScheduleEnabled.checked = false;
     inputCron.value = '';
     checkHeadless.checked = true; // Default for new
-    nextRunPreview.textContent = 'Not set';
+    checkScheduleEnabled.checked = false;
+    await updateNextRunPreview('');
   }
   schedulePanel.style.display = 'flex';
 
@@ -81,15 +84,23 @@ async function selectRecording(name) {
 async function updateNextRunPreview(cron) {
   if (!cron) {
     nextRunPreview.textContent = 'Not set';
+    checkScheduleEnabled.disabled = true;
+    checkScheduleEnabled.checked = false;
     return;
   }
   const result = await electronAPI.getNextRun(cron);
   if (result.success) {
     nextRunPreview.textContent = result.next || 'Never';
     nextRunPreview.style.color = 'var(--accent-color)';
+    checkScheduleEnabled.disabled = false;
   } else {
     nextRunPreview.textContent = 'Invalid Expression';
     nextRunPreview.style.color = '#ff4d4d'; // Red
+    checkScheduleEnabled.disabled = true;
+    if (checkScheduleEnabled.checked) {
+      checkScheduleEnabled.checked = false;
+      saveScheduleAuto();
+    }
   }
 }
 
@@ -128,15 +139,23 @@ btnModalCancel.onclick = () => {
 btnModalStart.onclick = async () => {
   const url = inputUrl.value || 'https://google.com';
   const name = inputName.value || `recording-${Date.now()}`;
+  const saveStorage = checkSaveStorage.checked;
+  const loadStorage = checkLoadStorage.checked;
+  const storageName = inputStorageName.value || 'auth.json';
+  
   modalNew.style.display = 'none';
   
   log(`Starting codegen for ${url}...`);
-  const result = await electronAPI.startCodegen(url);
+  const result = await electronAPI.startCodegen(url, { saveStorage, loadStorage, storageName });
   
   if (result.success) {
     log(`Recording completed. Saving as ${name}.js`);
     // Patch content to support headless toggle via environment variable
-    const patchedContent = result.content.replace(/headless: false/g, 'headless: process.env.PW_HEADLESS === "1"');
+    let patchedContent = result.content.replace(/headless: false/g, 'headless: process.env.PW_HEADLESS === "1"');
+    
+    // If storage is used, we might need to make sure the path in the script is relative or correctly handled
+    // Actually, main.js will provide an absolute path during codegen, which codegen will put into the script.
+    
     await electronAPI.saveRecording(name, patchedContent);
     await loadRecordings();
     selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);

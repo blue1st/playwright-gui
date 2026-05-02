@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readRecording: (name) => ipcRenderer.invoke('read-recording', name),
   saveRecording: (name, content) => ipcRenderer.invoke('save-recording', { name, content }),
   deleteRecording: (name) => ipcRenderer.invoke('delete-recording', name),
-  startCodegen: (url) => ipcRenderer.invoke('start-codegen', url),
+  startCodegen: (url, options) => ipcRenderer.invoke('start-codegen', url, options),
   runRecording: (name, headless) => ipcRenderer.invoke('run-recording', { name, headless }),
   updateSchedule: (config) => ipcRenderer.invoke('update-schedule', config),
   getSchedule: (name) => ipcRenderer.invoke('get-schedule', name),

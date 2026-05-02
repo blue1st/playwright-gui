@@ -21,6 +21,10 @@ const RECORDINGS_DIR = isDev
   ? path.join(__dirname, 'recordings') 
   : path.join(app.getPath('userData'), 'recordings');
 
+const STORAGE_DIR = isDev 
+  ? path.join(__dirname, 'storage') 
+  : path.join(app.getPath('userData'), 'storage');
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -52,6 +56,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await fs.ensureDir(RECORDINGS_DIR);
+  await fs.ensureDir(STORAGE_DIR);
   createWindow();
   createTray();
   loadSchedules();
@@ -348,13 +353,15 @@ ipcMain.handle('install-browsers', () => {
 });
 
 
-ipcMain.handle('start-codegen', (event, url = 'https://google.com') => {
+ipcMain.handle('start-codegen', (event, url = 'https://google.com', options = {}) => {
   return new Promise((resolve, reject) => {
     if (codegenProcess) {
       codegenProcess.kill();
     }
 
+    const { saveStorage, loadStorage, storageName = 'auth.json' } = options;
     const tempPath = path.join(RECORDINGS_DIR, 'recording-temp.cjs');
+    const storagePath = path.join(STORAGE_DIR, storageName);
     
     // Attempt to find local playwright CLI for more robustness
     const localPlaywright = path.join(__dirname, 'node_modules', 'playwright', 'cli.js');
@@ -368,8 +375,19 @@ ipcMain.handle('start-codegen', (event, url = 'https://google.com') => {
     }
 
     const args = fs.existsSync(localPlaywright) 
-      ? [localPlaywright, 'codegen', '--target', 'javascript', '-o', tempPath, url]
-      : ['playwright', 'codegen', '--target', 'javascript', '-o', tempPath, url];
+      ? [localPlaywright, 'codegen']
+      : ['playwright', 'codegen'];
+    
+    args.push('--target', 'javascript', '-o', tempPath);
+    
+    if (saveStorage) {
+      args.push('--save-storage', storagePath);
+    }
+    if (loadStorage) {
+      args.push('--load-storage', storagePath);
+    }
+    
+    args.push(url);
 
     codegenProcess = spawn(cmd, args, {
       shell: false,

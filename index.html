@@ -94,6 +94,20 @@
       <input type="text" id="input-url" value="https://google.com" placeholder="https://...">
       <p style="margin-bottom: 12px; color: var(--text-secondary);">Give it a name:</p>
       <input type="text" id="input-name" placeholder="my-awesome-test">
+
+      <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <label class="headless-toggle" style="margin: 0;">
+          <input type="checkbox" id="check-save-storage">
+          <span>Save Session</span>
+        </label>
+        <label class="headless-toggle" style="margin: 0;">
+          <input type="checkbox" id="check-load-storage">
+          <span>Load Session</span>
+        </label>
+      </div>
+      <p style="margin-bottom: 12px; color: var(--text-secondary);">Storage filename (optional):</p>
+      <input type="text" id="input-storage-name" placeholder="auth.json" value="auth.json" style="margin-bottom: 20px;">
+      
       <div class="modal-actions">
         <button id="btn-modal-cancel" class="btn-icon" style="padding: 10px 20px;">Cancel</button>
         <button id="btn-modal-start" class="btn-new" style="width: auto; padding: 10px 20px;">Start Recording</button>
