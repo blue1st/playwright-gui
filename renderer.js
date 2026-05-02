@@ -99,6 +99,23 @@ function log(msg) {
   consoleOutput.scrollTop = consoleOutput.scrollHeight;
 }
 
+async function handleBrowserError(result) {
+  if (result.isMissingBrowser) {
+    log('<span style="color: #ef4444; font-weight: bold;">Error: Playwright browsers are not installed.</span>');
+    if (confirm('Playwright browsers are missing. Would you like to install them now? This may take a few minutes.')) {
+      log('Starting browser installation...');
+      const installResult = await electronAPI.installBrowsers();
+      if (installResult.success) {
+        log('<span style="color: #22c55e; font-weight: bold;">Browsers installed successfully!</span> You can now try your action again.');
+      } else {
+        log(`<span style="color: #ef4444;">Installation failed: ${installResult.error}</span>`);
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 // Actions
 btnNewRecording.onclick = () => {
   modalNew.style.display = 'flex';
@@ -124,7 +141,10 @@ btnModalStart.onclick = async () => {
     await loadRecordings();
     selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
   } else {
-    log(`Error: ${result.error}`);
+    const handled = await handleBrowserError(result);
+    if (!handled) {
+      log(`Error: ${result.error}`);
+    }
   }
 };
 
@@ -137,7 +157,10 @@ btnRun.onclick = async () => {
   if (result.success) {
     log(`Run finished successfully.`);
   } else {
-    log(`Run failed.`);
+    const handled = await handleBrowserError(result);
+    if (!handled) {
+      log(`Run failed.`);
+    }
   }
 };
 

@@ -447,3 +447,11 @@ input:checked + .slider:before {
 .auto-launch-label input {
   cursor: pointer;
 }
+
+.console-output div {
+  margin-bottom: 2px;
+}
+
+.console-output span {
+  font-family: inherit;
+}

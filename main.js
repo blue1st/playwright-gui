@@ -304,6 +304,50 @@ ipcMain.handle('delete-recording', async (event, name) => {
 
 let codegenProcess = null;
 
+ipcMain.handle('install-browsers', () => {
+  return new Promise((resolve, reject) => {
+    const localPlaywright = path.join(__dirname, 'node_modules', 'playwright', 'cli.js');
+    let cmd = fs.existsSync(localPlaywright) ? process.execPath : 'npx';
+    const env = { ...process.env };
+    if (cmd === process.execPath) {
+      env.ELECTRON_RUN_AS_NODE = '1';
+    }
+
+    const args = fs.existsSync(localPlaywright) 
+      ? [localPlaywright, 'install', 'chromium']
+      : ['playwright', 'install', 'chromium'];
+
+    const installProcess = spawn(cmd, args, {
+      shell: false,
+      env
+    });
+
+    let output = '';
+    installProcess.stdout.on('data', (data) => {
+      output += data.toString();
+      if (mainWindow) mainWindow.webContents.send('run-output', `[Install] ${data}`);
+    });
+
+    installProcess.stderr.on('data', (data) => {
+      output += data.toString();
+      if (mainWindow) mainWindow.webContents.send('run-output', `[Install Error] ${data}`);
+    });
+
+    installProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true });
+      } else {
+        resolve({ success: false, error: `Installation failed with code ${code}` });
+      }
+    });
+
+    installProcess.on('error', (err) => {
+      reject(err);
+    });
+  });
+});
+
+
 ipcMain.handle('start-codegen', (event, url = 'https://google.com') => {
   return new Promise((resolve, reject) => {
     if (codegenProcess) {
@@ -345,7 +389,12 @@ ipcMain.handle('start-codegen', (event, url = 'https://google.com') => {
         await fs.remove(tempPath); // Delete temp file after reading
         resolve({ success: true, content });
       } else {
-        resolve({ success: false, error: errorOutput || `Process exited with code ${code}` });
+        const isMissingBrowser = errorOutput.includes('Executable doesn\'t exist') || errorOutput.includes('playwright install');
+        resolve({ 
+          success: false, 
+          error: errorOutput || `Process exited with code ${code}`,
+          isMissingBrowser
+        });
       }
     });
 
@@ -393,7 +442,8 @@ ipcMain.handle('run-recording', (event, { name, headless }) => {
     runProcess.on('close', (code) => {
       runningTasks.delete(name);
       updateTrayMenu();
-      resolve({ success: code === 0, output });
+      const isMissingBrowser = output.includes('Executable doesn\'t exist') || output.includes('playwright install');
+      resolve({ success: code === 0, output, isMissingBrowser });
     });
   });
 });

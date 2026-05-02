@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNextRun: (cron) => ipcRenderer.invoke('get-next-run', cron),
   setAutoLaunch: (enabled) => ipcRenderer.invoke('set-auto-launch', enabled),
   getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
+  installBrowsers: () => ipcRenderer.invoke('install-browsers'),
   onRunOutput: (callback) => ipcRenderer.on('run-output', (event, ...args) => callback(...args)),
 });
