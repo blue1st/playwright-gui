@@ -1,0 +1,56 @@
+{
+  "name": "playwright-gui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "electron .",
+    "dev": "concurrently \"npm run dev:vite\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "electron .",
+    "dist:electron": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.playwright.studio",
+    "productName": "Playwright Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.cjs",
+      "package.json",
+      "icon.png",
+      "tray-iconTemplate.png",
+      "tray-iconTemplate@2x.png"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.10",
+    "wait-on": "^9.0.5"
+  },
+  "dependencies": {
+    "croner": "^10.0.1",
+    "electron-is-dev": "^3.0.1",
+    "fix-path": "^5.0.0",
+    "fs-extra": "^11.3.4",
+    "lucide": "^1.14.0",
+    "playwright": "^1.59.1"
+  }
+}
