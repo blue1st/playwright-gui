@@ -17,14 +17,31 @@ Playwright Studio は、ブラウザ操作の録画、再生、および定期�
 - **自動起動設定**: OS ログイン時にアプリを自動的にバックグラウンドで開始する設定が可能です。
 - **プレミアムなUI/UX**: ダークモード、グラスモーフィズム、洗練されたアニメーションを採用したモダンなデザイン。
 
-## 🛠 セットアップ
+## 📦 インストール
+
+### macOS (Homebrew)
+
+[blue1st/homebrew-taps](https://github.com/blue1st/homebrew-taps) を利用してインストールできます。
+
+```bash
+brew install blue1st/taps/playwright-studio
+```
+
+### 手動インストール
+
+1. [Releases](https://github.com/blue1st/playwright-gui/releases) ページから最新バージョンのインストーラーをダウンロードします。
+   - macOS: `playwright-gui_X.X.X_arm64.dmg` (Apple Silicon) または `playwright-gui_X.X.X_x64.dmg` (Intel)
+   - Windows: `playwright-gui_X.X.X.exe`
+2. ダウンロードしたファイルを実行してインストールします。
+
+## 🛠 開発者向けセットアップ
 
 ### 前提条件
 
 - [Node.js](https://nodejs.org/) (v18 以上推奨)
 - npm
 
-### インストール
+### 開発環境の構築
 
 1. リポジトリをクローンまたはダウンロードします。
 2. 依存関係をインストールします：
