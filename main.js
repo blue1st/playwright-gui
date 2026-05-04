@@ -17,6 +17,8 @@ let mainWindow;
 let tray;
 const schedules = new Map(); // recordingName -> Cron instance
 const runningTasks = new Set();
+let codegenProcess = null;
+let smartRecordingBrowser = null;
 
 const RECORDINGS_DIR = isDev 
   ? path.join(__dirname, 'recordings') 
@@ -337,7 +339,19 @@ ipcMain.handle('delete-recording', async (event, name) => {
   return { success: true };
 });
 
-let codegenProcess = null;
+ipcMain.handle('stop-recording', async () => {
+  if (codegenProcess) {
+    codegenProcess.kill();
+    codegenProcess = null;
+    return { success: true };
+  }
+  if (smartRecordingBrowser) {
+    await smartRecordingBrowser.close();
+    smartRecordingBrowser = null;
+    return { success: true };
+  }
+  return { success: false, error: 'No active recording process' };
+});
 
 ipcMain.handle('install-browsers', () => {
   return new Promise((resolve, reject) => {
@@ -461,10 +475,14 @@ ipcMain.handle('start-smart-recording', (event, url = 'https://google.com', opti
     const storagePath = path.join(STORAGE_DIR, storageName);
 
     try {
-      const browser = await chromium.launch({ 
+      if (smartRecordingBrowser) {
+        await smartRecordingBrowser.close();
+      }
+      smartRecordingBrowser = await chromium.launch({ 
         headless: false,
         args: ['--start-maximized']
       });
+      const browser = smartRecordingBrowser;
       
       const contextOptions = {};
       if (loadStorage && await fs.pathExists(storagePath)) {
@@ -532,6 +550,7 @@ ipcMain.handle('start-smart-recording', (event, url = 'https://google.com', opti
         if (saveStorage) {
           await context.storageState({ path: storagePath });
         }
+        smartRecordingBrowser = null;
         resolve({ success: true });
       });
 

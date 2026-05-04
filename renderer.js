@@ -3,6 +3,7 @@ const { electronAPI } = window;
 const recordingsList = document.getElementById('recordings-list');
 const btnNewRecording = document.getElementById('btn-new-recording');
 const btnRun = document.getElementById('btn-run');
+const btnStopRecording = document.getElementById('btn-stop-recording');
 const btnSave = document.getElementById('btn-save');
 const btnDelete = document.getElementById('btn-delete');
 const editor = document.getElementById('editor');
@@ -25,6 +26,7 @@ const checkSaveStorage = document.getElementById('check-save-storage');
 const checkLoadStorage = document.getElementById('check-load-storage');
 const inputStorageName = document.getElementById('input-storage-name');
 const checkScrapingHelper = document.getElementById('check-scraping-helper');
+const btnRefreshRecordings = document.getElementById('btn-refresh-recordings');
 
 // New Logs Elements
 const navRecordings = document.getElementById('nav-recordings');
@@ -268,6 +270,10 @@ btnModalStart.onclick = async () => {
   currentRecordingName.textContent = fileName;
   schedulePanel.style.display = 'flex';
   
+  // Show stop button and hide run button
+  btnRun.style.display = 'none';
+  btnStopRecording.style.display = 'flex';
+  
   modalNew.style.display = 'none';
   
   if (useScrapingHelper) {
@@ -291,6 +297,10 @@ btnModalStart.onclick = async () => {
     } else {
       log(`Error: ${result.error}`);
     }
+    
+    // Restore buttons
+    btnRun.style.display = 'flex';
+    btnStopRecording.style.display = 'none';
   } else {
     log(`Starting codegen for ${url}...`);
     const result = await electronAPI.startCodegen(url, { saveStorage, loadStorage, storageName });
@@ -311,7 +321,16 @@ btnModalStart.onclick = async () => {
         log(`Error: ${result.error}`);
       }
     }
+    
+    // Restore buttons
+    btnRun.style.display = 'flex';
+    btnStopRecording.style.display = 'none';
   }
+};
+
+btnStopRecording.onclick = async () => {
+  log('Stopping recording...');
+  await electronAPI.stopRecording();
 };
 
 btnRun.onclick = async () => {
@@ -369,8 +388,18 @@ checkHeadless.addEventListener('change', () => {
 
 btnSave.onclick = async () => {
   if (!activeRecording) return;
-  await electronAPI.saveRecording(activeRecording, editor.value);
-  log(`Saved ${activeRecording}`);
+  const result = await electronAPI.saveRecording(activeRecording, editor.value);
+  if (result.success) {
+    log(`Saved ${activeRecording}`);
+    await loadRecordings();
+  } else {
+    log(`Error saving: ${result.error}`);
+  }
+};
+
+btnRefreshRecordings.onclick = () => {
+  loadRecordings();
+  log('Recordings list refreshed.');
 };
 
 btnDelete.onclick = async () => {
@@ -404,7 +433,8 @@ electronAPI.onRunOutput((data) => {
 electronAPI.onRecordingAction((action) => {
   if (action.type === 'extract') {
     log(`<span style="color: var(--accent-primary);">Extracted:</span> ${action.selector}`);
-    const code = `\n  // Extract text from ${action.selector}\n  const text_${Math.floor(Math.random()*1000)} = await page.innerText('${action.selector}');\n  console.log('Value of ${action.selector}:', text_${Math.floor(Math.random()*1000)});`;
+    const id = Math.floor(Math.random() * 10000);
+    const code = `\n  // Extract text from ${action.selector}\n  const text_${id} = await page.innerText('${action.selector}');\n  console.log('Value of ${action.selector}:', text_${id});`;
     editor.value += code;
     editor.scrollTop = editor.scrollHeight;
   } else if (action.type === 'click') {

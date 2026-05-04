@@ -170,6 +170,24 @@ button, input, textarea, .recording-item, .switch {
   color: var(--text-primary);
 }
 
+.btn-icon-small {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-small:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
 .btn-run {
   background-color: var(--success);
   color: white;
@@ -181,6 +199,26 @@ button, input, textarea, .recording-item, .switch {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.btn-stop {
+  background-color: var(--danger);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
 }
 
 /* Editor Area */
