@@ -30,10 +30,25 @@ body {
   flex-direction: column;
 }
 
+.title-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  -webkit-app-region: drag;
+  z-index: 9999;
+}
+
 .app-container {
   display: flex;
   height: 100%;
   padding-top: 32px; /* For draggable title bar */
+}
+
+/* Ensure interactive elements are not draggable */
+button, input, textarea, .recording-item, .switch {
+  -webkit-app-region: no-drag;
 }
 
 /* Sidebar */
