@@ -22,9 +22,6 @@ const checkScheduleEnabled = document.getElementById('check-schedule-enabled');
 const inputCron = document.getElementById('input-cron');
 const nextRunPreview = document.getElementById('next-run-preview');
 const checkAutoLaunch = document.getElementById('check-auto-launch');
-const checkSaveStorage = document.getElementById('check-save-storage');
-const checkLoadStorage = document.getElementById('check-load-storage');
-const inputStorageName = document.getElementById('input-storage-name');
 const checkScrapingHelper = document.getElementById('check-scraping-helper');
 const btnRefreshRecordings = document.getElementById('btn-refresh-recordings');
 
@@ -42,6 +39,22 @@ const logViewerTitle = document.getElementById('log-viewer-title');
 const logContent = document.getElementById('log-content');
 const btnCloseLog = document.getElementById('btn-close-log');
 const btnLogModalClose = document.getElementById('btn-log-modal-close');
+
+// New Sessions Elements
+const navSessions = document.getElementById('nav-sessions');
+const sessionsView = document.getElementById('sessions-view');
+const sessionsList = document.getElementById('sessions-list');
+const btnRefreshSessions = document.getElementById('btn-refresh-sessions');
+const btnNewSession = document.getElementById('btn-new-session');
+
+const modalSession = document.getElementById('modal-session');
+const btnSessionCancel = document.getElementById('btn-session-cancel');
+const btnSessionStart = document.getElementById('btn-session-start');
+const inputSessionUrl = document.getElementById('input-session-url');
+const inputSessionName = document.getElementById('input-session-name');
+
+const selectStorage = document.getElementById('select-storage');
+const btnModalRefreshStorage = document.getElementById('btn-modal-refresh-storage');
 
 let activeRecording = null;
 
@@ -150,10 +163,8 @@ btnNewRecording.onclick = () => {
   // Clear inputs and set a unique default name
   inputUrl.value = 'https://google.com';
   inputName.value = ''; // Let it default to timestamp or let user type
-  inputStorageName.value = 'auth.json';
-  checkSaveStorage.checked = false;
-  checkLoadStorage.checked = false;
   checkScrapingHelper.checked = false;
+  updateStorageDropdown();
   modalNew.style.display = 'flex';
 };
 
@@ -221,24 +232,125 @@ async function deleteLog(name) {
   }
 }
 
+// Sessions Logic
+async function loadSessions() {
+  const files = await electronAPI.getStorageFiles();
+  sessionsList.innerHTML = '';
+  
+  if (files.length === 0) {
+    sessionsList.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 40px;">No authentication sessions found.</td></tr>';
+    return;
+  }
+
+  files.forEach(file => {
+    const row = document.createElement('tr');
+    const displayName = file.replace('.json', '');
+
+    row.innerHTML = `
+      <td><span class="log-name">${displayName}</span></td>
+      <td><span style="color: var(--text-secondary);">${file}</span></td>
+      <td>
+        <div class="actions" style="gap: 8px;">
+          <button class="btn-icon btn-delete-session" title="Delete" style="color: var(--danger);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          </button>
+        </div>
+      </td>
+    `;
+    
+    row.querySelector('.btn-delete-session').onclick = () => deleteSession(file);
+    sessionsList.appendChild(row);
+  });
+}
+
+async function deleteSession(name) {
+  if (confirm(`Delete session ${name}?`)) {
+    const result = await electronAPI.deleteStorageFile(name);
+    if (result.success) {
+      loadSessions();
+    } else {
+      alert(`Error deleting session: ${result.error}`);
+    }
+  }
+}
+
+async function updateStorageDropdown() {
+  const files = await electronAPI.getStorageFiles();
+  const currentValue = selectStorage.value;
+  selectStorage.innerHTML = '<option value="">None</option>';
+  files.forEach(file => {
+    const option = document.createElement('option');
+    option.value = file;
+    option.textContent = file.replace('.json', '');
+    selectStorage.appendChild(option);
+  });
+  if (files.includes(currentValue)) {
+    selectStorage.value = currentValue;
+  }
+}
+
 // Navigation
 navRecordings.onclick = () => {
   navRecordings.classList.add('active');
   navLogs.classList.remove('active');
+  navSessions.classList.remove('active');
   recordingView.style.display = 'flex';
   logsView.style.display = 'none';
+  sessionsView.style.display = 'none';
 };
 
 navLogs.onclick = () => {
   navLogs.classList.add('active');
   navRecordings.classList.remove('active');
+  navSessions.classList.remove('active');
   recordingView.style.display = 'none';
   logsView.style.display = 'flex';
+  sessionsView.style.display = 'none';
   loadLogs();
 };
 
+navSessions.onclick = () => {
+  navSessions.classList.add('active');
+  navRecordings.classList.remove('active');
+  navLogs.classList.remove('active');
+  recordingView.style.display = 'none';
+  logsView.style.display = 'none';
+  sessionsView.style.display = 'flex';
+  loadSessions();
+};
+
 btnRefreshLogs.onclick = loadLogs;
+btnRefreshSessions.onclick = loadSessions;
 btnOpenLogsFolder.onclick = () => electronAPI.openLogFolder();
+
+btnNewSession.onclick = () => {
+  inputSessionUrl.value = 'https://google.com';
+  inputSessionName.value = '';
+  modalSession.style.display = 'flex';
+};
+
+btnSessionCancel.onclick = () => {
+  modalSession.style.display = 'none';
+};
+
+btnSessionStart.onclick = async () => {
+  const url = inputSessionUrl.value || 'https://google.com';
+  let name = inputSessionName.value || 'auth';
+  if (!name.endsWith('.json')) name += '.json';
+  
+  modalSession.style.display = 'none';
+  log(`Starting login session for ${url}. Save to ${name}...`);
+  
+  const result = await electronAPI.startLoginSession({ url, storageName: name });
+  if (result.success) {
+    log(`Login session finished. ${name} saved.`);
+    loadSessions();
+  } else {
+    log(`Login session error: ${result.error}`);
+  }
+};
+
+btnModalRefreshStorage.onclick = updateStorageDropdown;
 
 btnCloseLog.onclick = btnLogModalClose.onclick = () => {
   modalLog.style.display = 'none';
@@ -249,9 +361,11 @@ btnModalStart.onclick = async () => {
   // Use a more readable timestamp for the default name
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   let name = inputName.value || `recording-${timestamp}`;
-  const saveStorage = checkSaveStorage.checked;
-  const loadStorage = checkLoadStorage.checked;
-  const storageName = inputStorageName.value || 'auth.json';
+  
+  const storageName = selectStorage.value;
+  const loadStorage = !!storageName;
+  const saveStorage = false; // Usually we don't want to overwrite the session file during recording
+  
   const useScrapingHelper = checkScrapingHelper.checked;
   
   // Auto-increment name if it already exists to ensure it's a "new" file

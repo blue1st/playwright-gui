@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readLog: (name) => ipcRenderer.invoke('read-log', name),
   deleteLog: (name) => ipcRenderer.invoke('delete-log', name),
   openLogFolder: () => ipcRenderer.invoke('open-log-folder'),
+  getStorageFiles: () => ipcRenderer.invoke('get-storage-files'),
+  deleteStorageFile: (name) => ipcRenderer.invoke('delete-storage-file', name),
+  startLoginSession: (options) => ipcRenderer.invoke('start-login-session', options),
   onRunOutput: (callback) => ipcRenderer.on('run-output', (event, ...args) => callback(...args)),
   onRecordingAction: (callback) => ipcRenderer.on('recording-action', (event, ...args) => callback(...args)),
 });

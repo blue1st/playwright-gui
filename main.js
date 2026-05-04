@@ -727,3 +727,48 @@ ipcMain.handle('open-log-folder', async () => {
   await fs.ensureDir(LOGS_DIR);
   shell.openPath(LOGS_DIR);
 });
+
+ipcMain.handle('get-storage-files', async () => {
+  await fs.ensureDir(STORAGE_DIR);
+  const files = await fs.readdir(STORAGE_DIR);
+  return files.filter(f => f.endsWith('.json'));
+});
+
+ipcMain.handle('delete-storage-file', async (event, name) => {
+  const filePath = path.join(STORAGE_DIR, name);
+  if (await fs.pathExists(filePath)) {
+    await fs.remove(filePath);
+    return { success: true };
+  }
+  return { success: false, error: 'File not found' };
+});
+
+ipcMain.handle('start-login-session', (event, { url, storageName }) => {
+  return new Promise(async (resolve, reject) => {
+    const storagePath = path.join(STORAGE_DIR, storageName);
+    try {
+      const browser = await chromium.launch({ 
+        headless: false,
+        args: ['--start-maximized']
+      });
+      
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      
+      browser.on('disconnected', async () => {
+        resolve({ success: true });
+      });
+
+      // Save storage on page close or manual trigger? 
+      // Usually, saving on browser close is what users expect for "Login only"
+      page.on('close', async () => {
+        await context.storageState({ path: storagePath });
+      });
+
+      await page.goto(url);
+    } catch (error) {
+      console.error('Login Session Error:', error);
+      resolve({ success: false, error: error.message });
+    }
+  });
+});
