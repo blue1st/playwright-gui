@@ -144,7 +144,7 @@ function updateTrayMenu() {
 
 async function loadSchedules() {
   const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
-  if (await fs.exists(schedulePath)) {
+  if (await fs.pathExists(schedulePath)) {
     const data = await fs.readJson(schedulePath);
     let modified = false;
 
@@ -156,7 +156,7 @@ async function loadSchedules() {
 
     for (const [name, config] of Object.entries(data)) {
       const filePath = path.join(RECORDINGS_DIR, name);
-      if (!(await fs.exists(filePath))) {
+      if (!(await fs.pathExists(filePath))) {
         console.log(`Removing orphaned schedule for non-existent file: ${name}`);
         delete data[name];
         modified = true;
@@ -220,7 +220,7 @@ function setupCron(name, cronExpression, headless) {
 
 async function runRecordingInternal(name, headless) {
     const filePath = path.join(RECORDINGS_DIR, name);
-    if (!await fs.exists(filePath)) return;
+    if (!await fs.pathExists(filePath)) return;
 
     runningTasks.add(name);
     updateTrayMenu();
@@ -312,8 +312,9 @@ ipcMain.handle('save-recording', async (event, { name, content }) => {
 });
 
 ipcMain.handle('check-file-exists', async (event, name) => {
+  await fs.ensureDir(RECORDINGS_DIR);
   const filePath = path.join(RECORDINGS_DIR, name.endsWith('.cjs') ? name : `${name}.cjs`);
-  return await fs.exists(filePath);
+  return await fs.pathExists(filePath);
 });
 
 ipcMain.handle('delete-recording', async (event, name) => {
@@ -325,7 +326,7 @@ ipcMain.handle('delete-recording', async (event, name) => {
     schedules.get(name).job.stop();
     schedules.delete(name);
     const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
-    if (await fs.exists(schedulePath)) {
+    if (await fs.pathExists(schedulePath)) {
       const data = await fs.readJson(schedulePath);
       delete data[name];
       await fs.writeJson(schedulePath, data);
@@ -431,7 +432,7 @@ ipcMain.handle('start-codegen', (event, url = 'https://google.com', options = {}
 
     codegenProcess.on('close', async (code) => {
       codegenProcess = null;
-      if (await fs.exists(tempPath)) {
+      if (await fs.pathExists(tempPath)) {
         const content = await fs.readFile(tempPath, 'utf-8');
         await fs.remove(tempPath); // Delete temp file after reading
         resolve({ success: true, content });
@@ -466,7 +467,7 @@ ipcMain.handle('start-smart-recording', (event, url = 'https://google.com', opti
       });
       
       const contextOptions = {};
-      if (loadStorage && await fs.exists(storagePath)) {
+      if (loadStorage && await fs.pathExists(storagePath)) {
         contextOptions.storageState = storagePath;
       }
 
@@ -586,7 +587,7 @@ ipcMain.handle('run-recording', (event, { name, headless }) => {
 ipcMain.handle('update-schedule', async (event, { name, cron, enabled, headless }) => {
   const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
   let data = {};
-  if (await fs.exists(schedulePath)) {
+  if (await fs.pathExists(schedulePath)) {
     data = await fs.readJson(schedulePath);
   }
 
@@ -619,7 +620,7 @@ ipcMain.handle('update-schedule', async (event, { name, cron, enabled, headless 
 
 ipcMain.handle('get-schedule', async (event, name) => {
   const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
-  if (await fs.exists(schedulePath)) {
+  if (await fs.pathExists(schedulePath)) {
     const data = await fs.readJson(schedulePath);
     return data[name] || null;
   }
@@ -669,7 +670,7 @@ ipcMain.handle('get-logs', async () => {
 
 ipcMain.handle('read-log', async (event, name) => {
   const filePath = path.join(LOGS_DIR, name);
-  if (await fs.exists(filePath)) {
+  if (await fs.pathExists(filePath)) {
     return await fs.readFile(filePath, 'utf-8');
   }
   return null;
@@ -677,7 +678,7 @@ ipcMain.handle('read-log', async (event, name) => {
 
 ipcMain.handle('delete-log', async (event, name) => {
   const filePath = path.join(LOGS_DIR, name);
-  if (await fs.exists(filePath)) {
+  if (await fs.pathExists(filePath)) {
     await fs.remove(filePath);
     return { success: true };
   }
