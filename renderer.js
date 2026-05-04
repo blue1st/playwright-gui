@@ -130,6 +130,13 @@ async function handleBrowserError(result) {
 
 // Actions
 btnNewRecording.onclick = () => {
+  // Clear inputs and set a unique default name
+  inputUrl.value = 'https://google.com';
+  inputName.value = ''; // Let it default to timestamp or let user type
+  inputStorageName.value = 'auth.json';
+  checkSaveStorage.checked = false;
+  checkLoadStorage.checked = false;
+  checkScrapingHelper.checked = false;
   modalNew.style.display = 'flex';
 };
 
@@ -139,12 +146,25 @@ btnModalCancel.onclick = () => {
 
 btnModalStart.onclick = async () => {
   const url = inputUrl.value || 'https://google.com';
-  const name = inputName.value || `recording-${Date.now()}`;
+  // Use a more readable timestamp for the default name
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  let name = inputName.value || `recording-${timestamp}`;
   const saveStorage = checkSaveStorage.checked;
   const loadStorage = checkLoadStorage.checked;
   const storageName = inputStorageName.value || 'auth.json';
   const useScrapingHelper = checkScrapingHelper.checked;
   
+  // Auto-increment name if it already exists to ensure it's a "new" file
+  let finalName = name;
+  let counter = 1;
+  while (await electronAPI.checkFileExists(finalName)) {
+    const baseName = name.endsWith('.cjs') ? name.slice(0, -4) : name;
+    finalName = `${baseName}-${counter}`;
+    counter++;
+  }
+  name = finalName;
+  const fileName = name.endsWith('.cjs') ? name : `${name}.cjs`;
+
   modalNew.style.display = 'none';
   
   if (useScrapingHelper) {
@@ -156,11 +176,15 @@ btnModalStart.onclick = async () => {
     const result = await electronAPI.startSmartRecording(url, { saveStorage, loadStorage, storageName });
     
     if (result.success) {
-      log(`Recording finished.`);
+      log(`Recording finished. Saving as ${fileName}`);
       editor.value += `\n  await context.close();\n  await browser.close();\n})();`;
-      await electronAPI.saveRecording(name, editor.value);
-      await loadRecordings();
-      selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
+      const saveResult = await electronAPI.saveRecording(name, editor.value);
+      if (saveResult.success) {
+        await loadRecordings();
+        selectRecording(fileName);
+      } else {
+        log(`Error saving recording: ${saveResult.error}`);
+      }
     } else {
       log(`Error: ${result.error}`);
     }
@@ -169,11 +193,15 @@ btnModalStart.onclick = async () => {
     const result = await electronAPI.startCodegen(url, { saveStorage, loadStorage, storageName });
     
     if (result.success) {
-      log(`Recording completed. Saving as ${name}.js`);
+      log(`Recording completed. Saving as ${fileName}`);
       let patchedContent = result.content.replace(/headless: false/g, 'headless: process.env.PW_HEADLESS === "1"');
-      await electronAPI.saveRecording(name, patchedContent);
-      await loadRecordings();
-      selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
+      const saveResult = await electronAPI.saveRecording(name, patchedContent);
+      if (saveResult.success) {
+        await loadRecordings();
+        selectRecording(fileName);
+      } else {
+        log(`Error saving recording: ${saveResult.error}`);
+      }
     } else {
       const handled = await handleBrowserError(result);
       if (!handled) {

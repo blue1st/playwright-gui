@@ -283,9 +283,20 @@ ipcMain.handle('read-recording', async (event, name) => {
 });
 
 ipcMain.handle('save-recording', async (event, { name, content }) => {
+  try {
+    await fs.ensureDir(RECORDINGS_DIR);
+    const filePath = path.join(RECORDINGS_DIR, name.endsWith('.cjs') ? name : `${name}.cjs`);
+    await fs.writeFile(filePath, content);
+    return { success: true };
+  } catch (error) {
+    console.error('Save Recording Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('check-file-exists', async (event, name) => {
   const filePath = path.join(RECORDINGS_DIR, name.endsWith('.cjs') ? name : `${name}.cjs`);
-  await fs.writeFile(filePath, content);
-  return { success: true };
+  return await fs.exists(filePath);
 });
 
 ipcMain.handle('delete-recording', async (event, name) => {

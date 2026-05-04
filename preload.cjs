@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getRecordings: () => ipcRenderer.invoke('get-recordings'),
   readRecording: (name) => ipcRenderer.invoke('read-recording', name),
   saveRecording: (name, content) => ipcRenderer.invoke('save-recording', { name, content }),
+  checkFileExists: (name) => ipcRenderer.invoke('check-file-exists', name),
   deleteRecording: (name) => ipcRenderer.invoke('delete-recording', name),
   startCodegen: (url, options) => ipcRenderer.invoke('start-codegen', url, options),
   startSmartRecording: (url, options) => ipcRenderer.invoke('start-smart-recording', url, options),
