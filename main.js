@@ -15,8 +15,8 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let tray;
-const schedules = new Map(); // recordingName -> Cron instance
-const runningTasks = new Set();
+const schedules = new Map(); // normalized recordingName (lowercase) -> Cron entry
+const runningTasks = new Set(); // normalized recordingName (lowercase)
 let codegenProcess = null;
 let smartRecordingBrowser = null;
 
@@ -100,6 +100,7 @@ function updateTrayMenu() {
   // Running tasks
   if (runningTasks.size > 0) {
     template.push({ label: '実行中のスクリプト:', enabled: false });
+    // We don't have the original case here easily, but we can list them
     runningTasks.forEach(name => {
       template.push({ label: `  ▶ ${name}`, click: () => { mainWindow.show(); } });
     });
@@ -157,7 +158,10 @@ async function loadSchedules() {
     schedules.clear();
 
     for (const [name, config] of Object.entries(data)) {
+      const normalizedName = name.toLowerCase();
       const filePath = path.join(RECORDINGS_DIR, name);
+      
+      // Check if file exists (case-sensitive/preserving check depending on OS)
       if (!(await fs.pathExists(filePath))) {
         console.log(`Removing orphaned schedule for non-existent file: ${name}`);
         delete data[name];
@@ -166,6 +170,11 @@ async function loadSchedules() {
       }
 
       if (config.enabled && config.cron) {
+        // Prevent duplicate schedules for the same file with different casing
+        if (schedules.has(normalizedName)) {
+           console.log(`Skipping duplicate schedule entry for ${name} (already scheduled via ${normalizedName})`);
+           continue;
+        }
         console.log(`Initializing schedule for ${name}: ${config.cron}`);
         setupCron(name, config.cron, config.headless);
       }
@@ -179,24 +188,26 @@ async function loadSchedules() {
 }
 
 function setupCron(name, cronExpression, headless) {
-  if (schedules.has(name)) {
-    console.log(`Stopping existing job for ${name}`);
-    schedules.get(name).job.stop();
-    schedules.delete(name);
+  const normalizedName = name.toLowerCase();
+  
+  if (schedules.has(normalizedName)) {
+    console.log(`Stopping existing job for ${normalizedName}`);
+    schedules.get(normalizedName).job.stop();
+    schedules.delete(normalizedName);
   }
 
   try {
     const job = new Cron(cronExpression, () => {
-      const entry = schedules.get(name);
+      const entry = schedules.get(normalizedName);
       if (entry && entry.enabled) {
         const now = Date.now();
-        // Guard: Prevent re-running within 10 seconds to avoid double-triggers from library drift
-        if (entry.lastRun && (now - entry.lastRun < 10000)) {
+        // Guard: Prevent re-running within 15 seconds to avoid double-triggers from library drift
+        if (entry.lastRun && (now - entry.lastRun < 15000)) {
           console.log(`[${new Date().toISOString()}] Ignoring potential double-trigger for ${name} (last run was ${Math.round((now - entry.lastRun)/1000)}s ago)`);
           return;
         }
 
-        if (runningTasks.has(name)) {
+        if (runningTasks.has(normalizedName)) {
           console.log(`[${new Date().toISOString()}] Skipping scheduled task ${name}: Already running.`);
           return;
         }
@@ -210,7 +221,7 @@ function setupCron(name, cronExpression, headless) {
       }
     });
     
-    schedules.set(name, { job, enabled: true, cron: cronExpression, lastRun: 0 });
+    schedules.set(normalizedName, { job, enabled: true, cron: cronExpression, lastRun: 0 });
     console.log(`Successfully scheduled ${name} with pattern: ${cronExpression}`);
     updateTrayMenu();
     return true;
@@ -221,10 +232,11 @@ function setupCron(name, cronExpression, headless) {
 }
 
 async function runRecordingInternal(name, headless) {
+    const normalizedName = name.toLowerCase();
     const filePath = path.join(RECORDINGS_DIR, name);
     if (!await fs.pathExists(filePath)) return;
 
-    runningTasks.add(name);
+    runningTasks.add(normalizedName);
     updateTrayMenu();
 
     // Create log file
@@ -264,7 +276,7 @@ async function runRecordingInternal(name, headless) {
   runProcess.on('close', (code) => {
     logStream.write(`\n--- Execution Finished with code ${code} at ${new Date().toLocaleString()} ---`);
     logStream.end();
-    runningTasks.delete(name);
+    runningTasks.delete(normalizedName);
     updateTrayMenu();
   });
 }
@@ -288,7 +300,8 @@ ipcMain.handle('get-recordings', async () => {
   
   return validFiles.map(file => {
     // Check if there's an active schedule for this file
-    const hasActiveSchedule = schedules.has(file) && schedules.get(file).enabled;
+    const normalizedName = file.toLowerCase();
+    const hasActiveSchedule = schedules.has(normalizedName) && schedules.get(normalizedName).enabled;
     return {
       name: file,
       hasSchedule: hasActiveSchedule
@@ -324,9 +337,10 @@ ipcMain.handle('delete-recording', async (event, name) => {
   await fs.remove(filePath);
   
   // If there was a schedule for this recording, it should be cleaned up
-  if (schedules.has(name)) {
-    schedules.get(name).job.stop();
-    schedules.delete(name);
+  const normalizedName = name.toLowerCase();
+  if (schedules.has(normalizedName)) {
+    schedules.get(normalizedName).job.stop();
+    schedules.delete(normalizedName);
     const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
     if (await fs.pathExists(schedulePath)) {
       const data = await fs.readJson(schedulePath);
@@ -564,9 +578,10 @@ ipcMain.handle('start-smart-recording', (event, url = 'https://google.com', opti
 
 ipcMain.handle('run-recording', (event, { name, headless }) => {
   return new Promise((resolve, reject) => {
+    const normalizedName = name.toLowerCase();
     const filePath = path.join(RECORDINGS_DIR, name);
     
-    runningTasks.add(name);
+    runningTasks.add(normalizedName);
     updateTrayMenu();
 
     // Pass headless option via environment variable
@@ -595,7 +610,7 @@ ipcMain.handle('run-recording', (event, { name, headless }) => {
     });
 
     runProcess.on('close', (code) => {
-      runningTasks.delete(name);
+      runningTasks.delete(normalizedName);
       updateTrayMenu();
       const isMissingBrowser = output.includes('Executable doesn\'t exist') || output.includes('playwright install');
       resolve({ success: code === 0, output, isMissingBrowser });
@@ -641,7 +656,10 @@ ipcMain.handle('get-schedule', async (event, name) => {
   const schedulePath = path.join(app.getPath('userData'), 'schedules.json');
   if (await fs.pathExists(schedulePath)) {
     const data = await fs.readJson(schedulePath);
-    return data[name] || null;
+    // Try exact match first, then case-insensitive
+    if (data[name]) return data[name];
+    const key = Object.keys(data).find(k => k.toLowerCase() === name.toLowerCase());
+    return key ? data[key] : null;
   }
   return null;
 });
