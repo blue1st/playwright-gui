@@ -24,6 +24,7 @@ const checkAutoLaunch = document.getElementById('check-auto-launch');
 const checkSaveStorage = document.getElementById('check-save-storage');
 const checkLoadStorage = document.getElementById('check-load-storage');
 const inputStorageName = document.getElementById('input-storage-name');
+const checkScrapingHelper = document.getElementById('check-scraping-helper');
 
 let activeRecording = null;
 
@@ -142,27 +143,42 @@ btnModalStart.onclick = async () => {
   const saveStorage = checkSaveStorage.checked;
   const loadStorage = checkLoadStorage.checked;
   const storageName = inputStorageName.value || 'auth.json';
+  const useScrapingHelper = checkScrapingHelper.checked;
   
   modalNew.style.display = 'none';
   
-  log(`Starting codegen for ${url}...`);
-  const result = await electronAPI.startCodegen(url, { saveStorage, loadStorage, storageName });
-  
-  if (result.success) {
-    log(`Recording completed. Saving as ${name}.js`);
-    // Patch content to support headless toggle via environment variable
-    let patchedContent = result.content.replace(/headless: false/g, 'headless: process.env.PW_HEADLESS === "1"');
+  if (useScrapingHelper) {
+    log(`Starting smart recording for ${url}...`);
     
-    // If storage is used, we might need to make sure the path in the script is relative or correctly handled
-    // Actually, main.js will provide an absolute path during codegen, which codegen will put into the script.
+    // Initialize editor with boilerplate
+    editor.value = `const { chromium } = require('playwright');\n\n(async () => {\n  const browser = await chromium.launch({ headless: process.env.PW_HEADLESS === "1" });\n  const context = await browser.newContext();\n  const page = await context.newPage();\n\n  await page.goto('${url}');\n`;
     
-    await electronAPI.saveRecording(name, patchedContent);
-    await loadRecordings();
-    selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
-  } else {
-    const handled = await handleBrowserError(result);
-    if (!handled) {
+    const result = await electronAPI.startSmartRecording(url, { saveStorage, loadStorage, storageName });
+    
+    if (result.success) {
+      log(`Recording finished.`);
+      editor.value += `\n  await context.close();\n  await browser.close();\n})();`;
+      await electronAPI.saveRecording(name, editor.value);
+      await loadRecordings();
+      selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
+    } else {
       log(`Error: ${result.error}`);
+    }
+  } else {
+    log(`Starting codegen for ${url}...`);
+    const result = await electronAPI.startCodegen(url, { saveStorage, loadStorage, storageName });
+    
+    if (result.success) {
+      log(`Recording completed. Saving as ${name}.js`);
+      let patchedContent = result.content.replace(/headless: false/g, 'headless: process.env.PW_HEADLESS === "1"');
+      await electronAPI.saveRecording(name, patchedContent);
+      await loadRecordings();
+      selectRecording(name.endsWith('.cjs') ? name : `${name}.cjs`);
+    } else {
+      const handled = await handleBrowserError(result);
+      if (!handled) {
+        log(`Error: ${result.error}`);
+      }
     }
   }
 };
@@ -252,6 +268,18 @@ checkAutoLaunch.onchange = async () => {
 electronAPI.onRunOutput((data) => {
   consoleOutput.innerHTML += `<div>${data}</div>`;
   consoleOutput.scrollTop = consoleOutput.scrollHeight;
+});
+
+electronAPI.onRecordingAction((action) => {
+  if (action.type === 'extract') {
+    log(`<span style="color: var(--accent-primary);">Extracted:</span> ${action.selector}`);
+    const code = `\n  // Extract text from ${action.selector}\n  const text_${Math.floor(Math.random()*1000)} = await page.innerText('${action.selector}');\n  console.log('Value of ${action.selector}:', text_${Math.floor(Math.random()*1000)});`;
+    editor.value += code;
+    editor.scrollTop = editor.scrollHeight;
+  } else if (action.type === 'click') {
+    editor.value += `\n  await page.click('${action.selector}');`;
+    editor.scrollTop = editor.scrollHeight;
+  }
 });
 
 // Start

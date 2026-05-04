@@ -106,8 +106,15 @@
         </label>
       </div>
       <p style="margin-bottom: 12px; color: var(--text-secondary);">Storage filename (optional):</p>
-      <input type="text" id="input-storage-name" placeholder="auth.json" value="auth.json" style="margin-bottom: 20px;">
+      <input type="text" id="input-storage-name" placeholder="auth.json" value="auth.json" style="margin-bottom: 12px;">
       
+      <div style="margin-bottom: 20px;">
+        <label class="headless-toggle" style="margin: 0; color: var(--accent-primary); font-weight: 600;">
+          <input type="checkbox" id="check-scraping-helper">
+          <span>Extraction Helper (Ctrl+Right-click to record elements)</span>
+        </label>
+      </div>
+
       <div class="modal-actions">
         <button id="btn-modal-cancel" class="btn-icon" style="padding: 10px 20px;">Cancel</button>
         <button id="btn-modal-start" class="btn-new" style="width: auto; padding: 10px 20px;">Start Recording</button>

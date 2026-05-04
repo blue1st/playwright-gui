@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu } from 'electron';
+import { chromium } from 'playwright';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import isDev from 'electron-is-dev';
@@ -422,6 +423,94 @@ ipcMain.handle('start-codegen', (event, url = 'https://google.com', options = {}
       await fs.remove(tempPath).catch(() => {}); // Attempt to cleanup
       reject(err);
     });
+  });
+});
+
+ipcMain.handle('start-smart-recording', (event, url = 'https://google.com', options = {}) => {
+  return new Promise(async (resolve, reject) => {
+    const { saveStorage, loadStorage, storageName = 'auth.json' } = options;
+    const storagePath = path.join(STORAGE_DIR, storageName);
+
+    try {
+      const browser = await chromium.launch({ 
+        headless: false,
+        args: ['--start-maximized']
+      });
+      
+      const contextOptions = {};
+      if (loadStorage && await fs.exists(storagePath)) {
+        contextOptions.storageState = storagePath;
+      }
+
+      const context = await browser.newContext(contextOptions);
+
+      // Expose function to record elements
+      await context.exposeFunction('onElementRecorded', (data) => {
+        if (mainWindow) {
+          mainWindow.webContents.send('recording-action', data);
+        }
+      });
+
+      // Inject extraction helper script
+      await context.addInitScript(() => {
+        window.addEventListener('contextmenu', (e) => {
+          if (e.ctrlKey) {
+            e.preventDefault();
+            const el = e.target;
+            
+            // Simple selector generation
+            let selector = el.tagName.toLowerCase();
+            if (el.id) {
+              selector = `#${el.id}`;
+            } else if (el.className) {
+              const classes = Array.from(el.classList).join('.');
+              if (classes) selector += `.${classes}`;
+            }
+            
+            window.onElementRecorded({
+              type: 'extract',
+              selector: selector,
+              text: el.innerText || el.value || '',
+              tagName: el.tagName
+            });
+
+            // Visual feedback
+            const originalOutline = el.style.outline;
+            el.style.outline = '3px solid #3b82f6';
+            el.style.outlineOffset = '2px';
+            setTimeout(() => el.style.outline = originalOutline, 1000);
+          }
+        });
+        
+        // Simple click recorder
+        window.addEventListener('click', (e) => {
+          if (e.ctrlKey) return;
+          const el = e.target;
+          let selector = el.tagName.toLowerCase();
+          if (el.id) selector = `#${el.id}`;
+          else if (el.className) selector += `.${Array.from(el.classList)[0]}`;
+
+          window.onElementRecorded({
+            type: 'click',
+            selector: selector
+          });
+        }, true);
+      });
+
+      const page = await context.newPage();
+      
+      browser.on('disconnected', async () => {
+        if (saveStorage) {
+          await context.storageState({ path: storagePath });
+        }
+        resolve({ success: true });
+      });
+
+      await page.goto(url);
+    } catch (error) {
+      console.error('Smart Recording Error:', error);
+      resolve({ success: false, error: error.message });
+    }
   });
 });
 
