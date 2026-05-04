@@ -1,6 +1,6 @@
 {
   "name": "playwright-gui",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": true,
   "repository": "https://github.com/blue1st/playwright-gui",
   "type": "module",
