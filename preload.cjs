@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAutoLaunch: (enabled) => ipcRenderer.invoke('set-auto-launch', enabled),
   getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
   installBrowsers: () => ipcRenderer.invoke('install-browsers'),
+  getLogs: () => ipcRenderer.invoke('get-logs'),
+  readLog: (name) => ipcRenderer.invoke('read-log', name),
+  deleteLog: (name) => ipcRenderer.invoke('delete-log', name),
+  openLogFolder: () => ipcRenderer.invoke('open-log-folder'),
   onRunOutput: (callback) => ipcRenderer.on('run-output', (event, ...args) => callback(...args)),
   onRecordingAction: (callback) => ipcRenderer.on('recording-action', (event, ...args) => callback(...args)),
 });

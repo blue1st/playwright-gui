@@ -479,3 +479,128 @@ input:checked + .slider:before {
 .console-output span {
   font-family: inherit;
 }
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.btn-nav {
+  flex: 1;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-nav:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.btn-nav.active {
+  background-color: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+/* Logs View */
+.content-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.logs-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.logs-table th {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.logs-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logs-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.log-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.log-time {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Modal Enhancements */
+.modal-lg {
+  width: 90%;
+  max-width: 1000px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.modal-header {
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.log-content-wrapper {
+  flex: 1;
+  overflow: auto;
+  background-color: #020617;
+  margin: 20px 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+#log-content {
+  padding: 20px;
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.modal-lg .modal-actions {
+  padding: 20px 32px;
+  border-top: 1px solid var(--border-color);
+}

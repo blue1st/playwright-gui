@@ -26,6 +26,21 @@ const checkLoadStorage = document.getElementById('check-load-storage');
 const inputStorageName = document.getElementById('input-storage-name');
 const checkScrapingHelper = document.getElementById('check-scraping-helper');
 
+// New Logs Elements
+const navRecordings = document.getElementById('nav-recordings');
+const navLogs = document.getElementById('nav-logs');
+const recordingView = document.getElementById('recording-view');
+const logsView = document.getElementById('logs-view');
+const logsList = document.getElementById('logs-list');
+const btnRefreshLogs = document.getElementById('btn-refresh-logs');
+const btnOpenLogsFolder = document.getElementById('btn-open-logs-folder');
+
+const modalLog = document.getElementById('modal-log');
+const logViewerTitle = document.getElementById('log-viewer-title');
+const logContent = document.getElementById('log-content');
+const btnCloseLog = document.getElementById('btn-close-log');
+const btnLogModalClose = document.getElementById('btn-log-modal-close');
+
 let activeRecording = null;
 
 // Initialize
@@ -142,6 +157,89 @@ btnNewRecording.onclick = () => {
 
 btnModalCancel.onclick = () => {
   modalNew.style.display = 'none';
+};
+
+// Logs Logic
+async function loadLogs() {
+  const logs = await electronAPI.getLogs();
+  logsList.innerHTML = '';
+  
+  if (logs.length === 0) {
+    logsList.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 40px;">No execution logs found.</td></tr>';
+    return;
+  }
+
+  logs.forEach(log => {
+    const row = document.createElement('tr');
+    
+    // Extract recording name from log filename (e.g., "my-script_2024-05-04T01-42-03-000Z.log")
+    const parts = log.name.split('_');
+    const recName = parts[0] + '.cjs';
+    const dateStr = new Date(log.mtime).toLocaleString();
+    const sizeStr = (log.size / 1024).toFixed(1) + ' KB';
+
+    row.innerHTML = `
+      <td><span class="log-name">${recName}</span></td>
+      <td><span class="log-time">${dateStr}</span></td>
+      <td><span style="color: var(--text-secondary);">${sizeStr}</span></td>
+      <td>
+        <div class="actions" style="gap: 8px;">
+          <button class="btn-icon btn-view-log" title="View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="btn-icon btn-delete-log" title="Delete" style="color: var(--danger);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          </button>
+        </div>
+      </td>
+    `;
+    
+    row.querySelector('.btn-view-log').onclick = () => viewLog(log.name);
+    row.querySelector('.btn-delete-log').onclick = () => deleteLog(log.name);
+    
+    logsList.appendChild(row);
+  });
+}
+
+async function viewLog(name) {
+  const content = await electronAPI.readLog(name);
+  logViewerTitle.textContent = `Log: ${name}`;
+  logContent.textContent = content || 'Error: Could not read log file.';
+  modalLog.style.display = 'flex';
+}
+
+async function deleteLog(name) {
+  if (confirm(`Delete log ${name}?`)) {
+    const result = await electronAPI.deleteLog(name);
+    if (result.success) {
+      loadLogs();
+    } else {
+      alert(`Error deleting log: ${result.error}`);
+    }
+  }
+}
+
+// Navigation
+navRecordings.onclick = () => {
+  navRecordings.classList.add('active');
+  navLogs.classList.remove('active');
+  recordingView.style.display = 'flex';
+  logsView.style.display = 'none';
+};
+
+navLogs.onclick = () => {
+  navLogs.classList.add('active');
+  navRecordings.classList.remove('active');
+  recordingView.style.display = 'none';
+  logsView.style.display = 'flex';
+  loadLogs();
+};
+
+btnRefreshLogs.onclick = loadLogs;
+btnOpenLogsFolder.onclick = () => electronAPI.openLogFolder();
+
+btnCloseLog.onclick = btnLogModalClose.onclick = () => {
+  modalLog.style.display = 'none';
 };
 
 btnModalStart.onclick = async () => {

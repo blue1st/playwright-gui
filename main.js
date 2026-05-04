@@ -26,6 +26,10 @@ const STORAGE_DIR = isDev
   ? path.join(__dirname, 'storage') 
   : path.join(app.getPath('userData'), 'storage');
 
+const LOGS_DIR = isDev 
+  ? path.join(__dirname, 'logs') 
+  : path.join(app.getPath('userData'), 'logs');
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -58,6 +62,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   await fs.ensureDir(RECORDINGS_DIR);
   await fs.ensureDir(STORAGE_DIR);
+  await fs.ensureDir(LOGS_DIR);
   createWindow();
   createTray();
   loadSchedules();
@@ -220,7 +225,16 @@ async function runRecordingInternal(name, headless) {
     runningTasks.add(name);
     updateTrayMenu();
 
-    // For scheduled runs, we might want to log to a file or just stdout
+    // Create log file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const logFileName = `${name.replace('.cjs', '')}_${timestamp}.log`;
+    const logPath = path.join(LOGS_DIR, logFileName);
+    const logStream = fs.createWriteStream(logPath);
+
+    logStream.write(`--- Execution Started: ${new Date().toLocaleString()} ---\n`);
+    logStream.write(`Script: ${name}\n`);
+    logStream.write(`Headless: ${headless}\n\n`);
+
     console.log(`Running scheduled task: ${name} (headless: ${headless})`);
     
     const env = { 
@@ -230,21 +244,24 @@ async function runRecordingInternal(name, headless) {
       NODE_PATH: path.join(__dirname, 'node_modules')
     };
     
-    // Use process.execPath to ensure we use the bundled node/electron runtime
     const runProcess = spawn(process.execPath, [filePath], {
       shell: false,
       env
     });
 
   runProcess.stdout.on('data', (data) => {
+    logStream.write(`[STDOUT] ${data}`);
     if (mainWindow) mainWindow.webContents.send('run-output', `[Scheduled: ${name}] ${data}`);
   });
 
   runProcess.stderr.on('data', (data) => {
+    logStream.write(`[STDERR] ${data}`);
     if (mainWindow) mainWindow.webContents.send('run-output', `[Scheduled Error: ${name}] ${data}`);
   });
 
-  runProcess.on('close', () => {
+  runProcess.on('close', (code) => {
+    logStream.write(`\n--- Execution Finished with code ${code} at ${new Date().toLocaleString()} ---`);
+    logStream.end();
     runningTasks.delete(name);
     updateTrayMenu();
   });
@@ -632,4 +649,43 @@ ipcMain.handle('set-auto-launch', (event, enabled) => {
 ipcMain.handle('get-auto-launch', () => {
   const settings = app.getLoginItemSettings();
   return settings.openAtLogin;
+});
+
+ipcMain.handle('get-logs', async () => {
+  await fs.ensureDir(LOGS_DIR);
+  const files = await fs.readdir(LOGS_DIR);
+  const logs = await Promise.all(files.filter(f => f.endsWith('.log')).map(async (file) => {
+    const filePath = path.join(LOGS_DIR, file);
+    const stats = await fs.stat(filePath);
+    return {
+      name: file,
+      size: stats.size,
+      mtime: stats.mtime
+    };
+  }));
+  // Sort by modification time descending
+  return logs.sort((a, b) => b.mtime - a.mtime);
+});
+
+ipcMain.handle('read-log', async (event, name) => {
+  const filePath = path.join(LOGS_DIR, name);
+  if (await fs.exists(filePath)) {
+    return await fs.readFile(filePath, 'utf-8');
+  }
+  return null;
+});
+
+ipcMain.handle('delete-log', async (event, name) => {
+  const filePath = path.join(LOGS_DIR, name);
+  if (await fs.exists(filePath)) {
+    await fs.remove(filePath);
+    return { success: true };
+  }
+  return { success: false, error: 'File not found' };
+});
+
+ipcMain.handle('open-log-folder', async () => {
+  const { shell } = await import('electron');
+  await fs.ensureDir(LOGS_DIR);
+  shell.openPath(LOGS_DIR);
 });
