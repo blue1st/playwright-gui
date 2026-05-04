@@ -263,6 +263,11 @@ btnModalStart.onclick = async () => {
   name = finalName;
   const fileName = name.endsWith('.cjs') ? name : `${name}.cjs`;
 
+  // Show the name immediately so the user knows where it will be saved
+  activeRecording = fileName;
+  currentRecordingName.textContent = fileName;
+  schedulePanel.style.display = 'flex';
+  
   modalNew.style.display = 'none';
   
   if (useScrapingHelper) {
