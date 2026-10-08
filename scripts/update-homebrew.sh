@@ -64,9 +64,10 @@ cask "${CASK_NAME}" do
 
   app "Playwright Studio.app"
 
-  postflight_steps do
-    run "/usr/bin/xattr", args: ["-cr", "#{appdir}/Playwright Studio.app"]
-  end
+  caveats <<~EOS
+    Playwright Studio is not notarized. If macOS blocks it from running, execute:
+      xattr -cr "/Applications/Playwright Studio.app"
+  EOS
 
   zap trash: [
     "~/Library/Application Support/com.playwright.studio",
